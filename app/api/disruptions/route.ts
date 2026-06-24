@@ -20,8 +20,8 @@ function sv(translations: Translation[] | null | undefined) {
 function matchesLines(alert: Alert, lineNumbers: string[]): boolean {
   const text = `${sv(alert.headerText?.translation)} ${sv(alert.descriptionText?.translation)}`
   return lineNumbers.some(ln => {
-    // Word-boundary match in alert text (e.g. "41" won't match "141")
-    if (new RegExp(`(?<!\\d)${ln.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?!\\d)`).test(text)) return true
+    // Exclude digit OR colon before match (avoids "15:41" matching "41")
+    if (new RegExp(`(?<![:\\d])${ln.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?!\\d)`).test(text)) return true
     // Route ID match (SL GTFS IDs often contain the line number)
     return (alert.informedEntity ?? []).some(ie => {
       const rid = String(ie.routeId ?? '')

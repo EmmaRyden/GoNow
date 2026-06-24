@@ -248,17 +248,17 @@ export default function Home() {
 
   useEffect(() => {
     if (journeys.length === 0) { setDisruptions([]); return }
+    const trip = journeys[currentIndex]
+    if (!trip) return
+    const legs = Array.isArray(trip.LegList.Leg) ? trip.LegList.Leg : [trip.LegList.Leg]
     const lineSet = new Set<string>()
-    journeys.forEach(trip => {
-      const legs = Array.isArray(trip.LegList.Leg) ? trip.LegList.Leg : [trip.LegList.Leg]
-      legs.forEach(leg => { if (leg.type === 'JNY') lineSet.add(getLegNumber(leg)) })
-    })
+    legs.forEach(leg => { if (leg.type === 'JNY') lineSet.add(getLegNumber(leg)) })
     if (lineSet.size === 0) return
     fetch(`/api/disruptions?lines=${Array.from(lineSet).join(',')}`)
       .then(r => r.json())
       .then(d => setDisruptions(d.deviations ?? []))
       .catch(() => null)
-  }, [journeys])
+  }, [journeys, currentIndex])
 
   if (!home || !work) return null
 
