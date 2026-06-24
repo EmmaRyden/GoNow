@@ -154,14 +154,13 @@ function WeatherCard({ w, title, icon }: { w: Weather; title: string; icon: stri
         <i className={`ti ${icon} text-sm`} aria-hidden="true" />
         {title}
       </p>
-      <div className="flex justify-between items-start">
+      <div className="flex items-center gap-3">
+        <i className={`ti ${weatherIcon(c.weather_code)} text-4xl text-slate-300 flex-shrink-0`} aria-hidden="true" />
         <div>
           <p className="text-3xl font-bold text-white leading-none">{Math.round(c.temperature_2m)}°</p>
-          <p className="text-sm text-slate-400 mt-1">Känns som {Math.round(c.apparent_temperature)}°</p>
-        </div>
-        <div className="text-right">
-          <i className={`ti ${weatherIcon(c.weather_code)} text-2xl text-slate-300`} aria-hidden="true" />
-          <p className="text-sm text-slate-300 mt-1">{weatherLabel(c.weather_code)}</p>
+          <p className="text-sm text-slate-400 mt-0.5">
+            {weatherLabel(c.weather_code)} · Känns som {Math.round(c.apparent_temperature)}°
+          </p>
         </div>
       </div>
       <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-sm text-slate-400">
@@ -178,26 +177,22 @@ function WeatherCard({ w, title, icon }: { w: Weather; title: string; icon: stri
             <i className="ti ti-snowflake text-sm" aria-hidden="true" />{c.snowfall} mm
           </span>
         )}
+        {w.daily?.sunrise && (
+          <span className="flex items-center gap-1">
+            <i className="ti ti-sunrise text-sm" aria-hidden="true" />{w.daily.sunrise}
+          </span>
+        )}
+        {w.daily?.sunset && (
+          <span className="flex items-center gap-1">
+            <i className="ti ti-sunset text-sm" aria-hidden="true" />{w.daily.sunset}
+          </span>
+        )}
+        {w.daily?.uvIndexMax != null && (
+          <span className="flex items-center gap-1">
+            <i className="ti ti-uv-index text-sm" aria-hidden="true" />UV {Math.round(w.daily.uvIndexMax)}
+          </span>
+        )}
       </div>
-      {w.daily && (
-        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm text-slate-400 border-t border-slate-700 pt-2">
-          {w.daily.sunrise && (
-            <span className="flex items-center gap-1">
-              <i className="ti ti-sunrise text-sm" aria-hidden="true" />{w.daily.sunrise}
-            </span>
-          )}
-          {w.daily.sunset && (
-            <span className="flex items-center gap-1">
-              <i className="ti ti-sunset text-sm" aria-hidden="true" />{w.daily.sunset}
-            </span>
-          )}
-          {w.daily.uvIndexMax != null && (
-            <span className="flex items-center gap-1">
-              <i className="ti ti-sun text-sm" aria-hidden="true" />UV {Math.round(w.daily.uvIndexMax)}
-            </span>
-          )}
-        </div>
-      )}
     </div>
   )
 }
