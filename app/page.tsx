@@ -194,6 +194,7 @@ export default function Home() {
   const [journeys, setJourneys] = useState<Trip[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [disruptions, setDisruptions] = useState<Disruption[]>([])
+  const [expandedDisruptions, setExpandedDisruptions] = useState<Set<number>>(new Set())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -256,7 +257,7 @@ export default function Home() {
     if (lineSet.size === 0) return
     fetch(`/api/disruptions?lines=${Array.from(lineSet).join(',')}`)
       .then(r => r.json())
-      .then(d => setDisruptions(d.deviations ?? []))
+      .then(d => { setDisruptions(d.deviations ?? []); setExpandedDisruptions(new Set()) })
       .catch(() => null)
   }, [journeys, currentIndex])
 
@@ -309,17 +310,33 @@ export default function Home() {
 
         {/* Trafikstörningar */}
         {disruptions.length > 0 && (
-          <div className="rounded-2xl bg-amber-950/60 border border-amber-700/40 p-4">
-            <p className="text-xs text-amber-400 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+          <div className="rounded-2xl bg-amber-950/60 border border-amber-700/40 overflow-hidden">
+            <p className="text-xs text-amber-400 uppercase tracking-wide px-4 pt-3 pb-2 flex items-center gap-1.5">
               <i className="ti ti-alert-triangle text-sm" aria-hidden="true" />
               Trafikstörningar
             </p>
-            {disruptions.map((d, i) => (
-              <div key={i} className={i > 0 ? 'mt-3 pt-3 border-t border-amber-900/60' : ''}>
-                <p className="text-sm font-medium text-amber-100">{d.header}</p>
-                {d.details && <p className="text-xs text-amber-300/80 mt-0.5 leading-relaxed">{d.details}</p>}
-              </div>
-            ))}
+            {disruptions.map((d, i) => {
+              const expanded = expandedDisruptions.has(i)
+              const toggle = () => setExpandedDisruptions(prev => {
+                const next = new Set(prev)
+                expanded ? next.delete(i) : next.add(i)
+                return next
+              })
+              return (
+                <div key={i} className={i > 0 ? 'border-t border-amber-900/60' : ''}>
+                  <button
+                    onClick={toggle}
+                    className="w-full flex items-center justify-between px-4 py-2.5 text-left"
+                  >
+                    <span className="text-sm font-medium text-amber-100 pr-3">{d.header}</span>
+                    <i className={`ti ${expanded ? 'ti-chevron-up' : 'ti-chevron-down'} text-amber-400 flex-shrink-0 text-sm`} aria-hidden="true" />
+                  </button>
+                  {expanded && d.details && (
+                    <p className="text-xs text-amber-300/80 leading-relaxed px-4 pb-3">{d.details}</p>
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
 
