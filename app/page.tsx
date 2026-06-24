@@ -21,6 +21,11 @@ interface Weather {
     wind_speed_10m: number
     weather_code: number
   }
+  daily?: {
+    sunrise: string | null
+    sunset: string | null
+    uvIndexMax: number | null
+  } | null
 }
 
 interface TripProduct {
@@ -69,12 +74,15 @@ function weatherLabel(code: number) {
 
 function weatherIcon(code: number) {
   if (code === 0) return 'ti-sun'
-  if (code <= 2) return 'ti-cloud-sun'
-  if (code === 3) return 'ti-cloud'
-  if (code <= 48) return 'ti-mist'
+  if (code <= 2) return 'ti-sun'        // mainly clear / partly cloudy
+  if (code <= 3) return 'ti-cloud'      // overcast
+  if (code <= 48) return 'ti-cloud'     // fog
+  if (code <= 57) return 'ti-cloud-rain'
   if (code <= 67) return 'ti-cloud-rain'
+  if (code <= 77) return 'ti-snowflake'
+  if (code <= 82) return 'ti-cloud-rain'
   if (code <= 86) return 'ti-snowflake'
-  return 'ti-cloud-storm'
+  return 'ti-bolt'
 }
 
 function getTransitType(leg: TripLeg) {
@@ -156,7 +164,7 @@ function WeatherCard({ w, title, icon }: { w: Weather; title: string; icon: stri
           <p className="text-sm text-slate-300 mt-1">{weatherLabel(c.weather_code)}</p>
         </div>
       </div>
-      <div className="flex gap-4 mt-3 text-sm text-slate-400">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-sm text-slate-400">
         <span className="flex items-center gap-1">
           <i className="ti ti-wind text-sm" aria-hidden="true" />{Math.round(c.wind_speed_10m)} m/s
         </span>
@@ -171,6 +179,25 @@ function WeatherCard({ w, title, icon }: { w: Weather; title: string; icon: stri
           </span>
         )}
       </div>
+      {w.daily && (
+        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm text-slate-400 border-t border-slate-700 pt-2">
+          {w.daily.sunrise && (
+            <span className="flex items-center gap-1">
+              <i className="ti ti-sunrise text-sm" aria-hidden="true" />{w.daily.sunrise}
+            </span>
+          )}
+          {w.daily.sunset && (
+            <span className="flex items-center gap-1">
+              <i className="ti ti-sunset text-sm" aria-hidden="true" />{w.daily.sunset}
+            </span>
+          )}
+          {w.daily.uvIndexMax != null && (
+            <span className="flex items-center gap-1">
+              <i className="ti ti-sun text-sm" aria-hidden="true" />UV {Math.round(w.daily.uvIndexMax)}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 const FIELDS = 'temperature_2m,apparent_temperature,precipitation,snowfall,wind_speed_10m,weather_code'
+const DAILY = 'sunrise,sunset,uv_index_max'
+
+function extractDaily(data: { daily?: { sunrise?: string[]; sunset?: string[]; uv_index_max?: number[] } }) {
+  if (!data.daily) return null
+  return {
+    sunrise: data.daily.sunrise?.[0]?.slice(11, 16) ?? null,
+    sunset: data.daily.sunset?.[0]?.slice(11, 16) ?? null,
+    uvIndexMax: data.daily.uv_index_max?.[0] ?? null,
+  }
+}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -18,6 +28,7 @@ export async function GET(request: NextRequest) {
   url.searchParams.set('longitude', lon)
   url.searchParams.set('timezone', 'Europe/Stockholm')
   url.searchParams.set('forecast_days', '1')
+  url.searchParams.set('daily', DAILY)
 
   if (hourParam !== null) {
     url.searchParams.set('hourly', FIELDS)
@@ -34,6 +45,7 @@ export async function GET(request: NextRequest) {
         wind_speed_10m: data.hourly.wind_speed_10m[h],
         weather_code: data.hourly.weather_code[h],
       },
+      daily: extractDaily(data),
     })
   }
 
@@ -41,5 +53,5 @@ export async function GET(request: NextRequest) {
   const res = await fetch(url.toString(), { next: { revalidate: 300 } })
   if (!res.ok) return NextResponse.json({ error: 'Vädertjänsten svarade inte' }, { status: 502 })
   const data = await res.json()
-  return NextResponse.json(data)
+  return NextResponse.json({ current: data.current, daily: extractDaily(data) })
 }
