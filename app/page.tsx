@@ -262,17 +262,20 @@ export default function Home() {
         </Link>
       </header>
 
-      <div className="flex rounded-xl bg-slate-800 p-1 mb-4">
-        {(['toWork', 'toHome'] as const).map((d) => (
-          <button
-            key={d}
-            onClick={() => setDirection(d)}
-            className={`flex-1 rounded-lg py-2.5 text-sm font-medium transition-colors ${direction === d ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
-          >
-            {d === 'toWork' ? 'Hem → Jobb' : 'Jobb → Hem'}
-          </button>
-        ))}
-      </div>
+      <button
+        onClick={() => setDirection(d => d === 'toWork' ? 'toHome' : 'toWork')}
+        className="flex items-center justify-between w-full rounded-xl bg-slate-800 px-4 py-3 mb-4 hover:bg-slate-700 transition-colors"
+      >
+        <span className="flex items-center gap-2 text-sm font-medium text-white">
+          <i className={`ti ${direction === 'toWork' ? 'ti-home' : 'ti-building'} text-base text-slate-400`} aria-hidden="true" />
+          {direction === 'toWork' ? home?.name ?? 'Hem' : work?.name ?? 'Jobb'}
+        </span>
+        <i className="ti ti-arrows-exchange text-slate-400 text-lg" aria-hidden="true" />
+        <span className="flex items-center gap-2 text-sm font-medium text-white">
+          {direction === 'toWork' ? work?.name ?? 'Jobb' : home?.name ?? 'Hem'}
+          <i className={`ti ${direction === 'toWork' ? 'ti-building' : 'ti-home'} text-base text-slate-400`} aria-hidden="true" />
+        </span>
+      </button>
 
       <div className="flex flex-col gap-3 pb-8">
 
