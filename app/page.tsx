@@ -5,6 +5,13 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { SavedLocation } from './settings/page'
 
+interface Disruption {
+  header: string
+  details: string
+  scope: string
+  lineNumber?: string | number
+}
+
 interface Weather {
   current: {
     temperature_2m: number
@@ -186,6 +193,7 @@ export default function Home() {
   const [arrivalWeather, setArrivalWeather] = useState<Weather | null>(null)
   const [journeys, setJourneys] = useState<Trip[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [disruptions, setDisruptions] = useState<Disruption[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -238,6 +246,20 @@ export default function Home() {
       .then(r => r.json()).then(setArrivalWeather).catch(() => null)
   }, [journeys, currentIndex, home, work, direction])
 
+  useEffect(() => {
+    if (journeys.length === 0) { setDisruptions([]); return }
+    const lineSet = new Set<string>()
+    journeys.forEach(trip => {
+      const legs = Array.isArray(trip.LegList.Leg) ? trip.LegList.Leg : [trip.LegList.Leg]
+      legs.forEach(leg => { if (leg.type === 'JNY') lineSet.add(getLegNumber(leg)) })
+    })
+    if (lineSet.size === 0) return
+    fetch(`/api/disruptions?lines=${Array.from(lineSet).join(',')}`)
+      .then(r => r.json())
+      .then(d => setDisruptions(d.deviations ?? []))
+      .catch(() => null)
+  }, [journeys])
+
   if (!home || !work) return null
 
   const origin = direction === 'toWork' ? home : work
@@ -284,6 +306,22 @@ export default function Home() {
           ? <WeatherCard w={originWeather} title={origin.name} icon="ti-map-pin" />
           : <div className="rounded-2xl bg-slate-800 p-4 text-slate-400 text-sm">{loading ? 'Hämtar väder...' : 'Väder ej tillgängligt'}</div>
         }
+
+        {/* Trafikstörningar */}
+        {disruptions.length > 0 && (
+          <div className="rounded-2xl bg-amber-950/60 border border-amber-700/40 p-4">
+            <p className="text-xs text-amber-400 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+              <i className="ti ti-alert-triangle text-sm" aria-hidden="true" />
+              Trafikstörningar
+            </p>
+            {disruptions.map((d, i) => (
+              <div key={i} className={i > 0 ? 'mt-3 pt-3 border-t border-amber-900/60' : ''}>
+                <p className="text-sm font-medium text-amber-100">{d.header}</p>
+                {d.details && <p className="text-xs text-amber-300/80 mt-0.5 leading-relaxed">{d.details}</p>}
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Resekortet */}
         <div className="rounded-2xl bg-slate-800 overflow-hidden">
