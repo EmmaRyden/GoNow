@@ -3,22 +3,52 @@ import GtfsRealtimeBindings from 'gtfs-realtime-bindings'
 
 export const runtime = 'nodejs'
 
-export async function GET(_request: NextRequest) {
+type Translation = { language?: string | null; text: string }
+type InformedEntity = { routeId?: string | null }
+type Alert = {
+  activePeriod?: { start?: number | Long | null; end?: number | Long | null }[]
+  headerText?: { translation?: Translation[] | null } | null
+  descriptionText?: { translation?: Translation[] | null } | null
+  informedEntity?: InformedEntity[] | null
+}
+type Long = { toNumber(): number }
+
+function sv(translations: Translation[] | null | undefined) {
+  return translations?.find(t => t.language === 'sv')?.text ?? translations?.[0]?.text ?? ''
+}
+
+function matchesLines(alert: Alert, lineNumbers: string[]): boolean {
+  const text = `${sv(alert.headerText?.translation)} ${sv(alert.descriptionText?.translation)}`
+  return lineNumbers.some(ln => {
+    // Word-boundary match in alert text (e.g. "41" won't match "141")
+    if (new RegExp(`(?<!\\d)${ln.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?!\\d)`).test(text)) return true
+    // Route ID match (SL GTFS IDs often contain the line number)
+    return (alert.informedEntity ?? []).some(ie => {
+      const rid = String(ie.routeId ?? '')
+      return rid === ln || rid.endsWith(`:${ln}`) || rid.endsWith(`_${ln}`)
+    })
+  })
+}
+
+export async function GET(request: NextRequest) {
   const apiKey = process.env.GTFS_RT_KEY
   if (!apiKey) return NextResponse.json({ deviations: [] })
 
-  const url = `https://opendata.samtrafiken.se/gtfs-rt/sl/ServiceAlerts.pb?key=${apiKey}`
+  const { searchParams } = new URL(request.url)
+  const linesParam = searchParams.get('lines')
+  const lineNumbers = linesParam ? linesParam.split(',').map(l => l.trim()).filter(Boolean) : null
 
-  const res = await fetch(url, { next: { revalidate: 300 } })
+  const res = await fetch(
+    `https://opendata.samtrafiken.se/gtfs-rt/sl/ServiceAlerts.pb?key=${apiKey}`,
+    { next: { revalidate: 300 } }
+  )
   if (!res.ok) return NextResponse.json({ deviations: [] })
 
-  const buffer = await res.arrayBuffer()
-  const feed = GtfsRealtimeBindings.transit_realtime.FeedMessage.decode(new Uint8Array(buffer))
+  const feed = GtfsRealtimeBindings.transit_realtime.FeedMessage.decode(
+    new Uint8Array(await res.arrayBuffer())
+  )
 
   const now = Math.floor(Date.now() / 1000)
-
-  const sv = (translations: { language?: string | null; text: string }[] | null | undefined) =>
-    translations?.find(t => t.language === 'sv')?.text ?? translations?.[0]?.text ?? ''
 
   const alerts = feed.entity
     .filter(e => e.alert)
@@ -26,11 +56,12 @@ export async function GET(_request: NextRequest) {
       const periods = e.alert!.activePeriod ?? []
       if (periods.length === 0) return true
       return periods.some(p => {
-        const start = p.start != null ? Number(p.start) : 0
-        const end = p.end != null ? Number(p.end) : 0
+        const start = p.start != null ? (typeof p.start === 'object' ? (p.start as Long).toNumber() : Number(p.start)) : 0
+        const end = p.end != null ? (typeof p.end === 'object' ? (p.end as Long).toNumber() : Number(p.end)) : 0
         return start <= now && (end === 0 || end >= now)
       })
     })
+    .filter(e => !lineNumbers || matchesLines(e.alert! as Alert, lineNumbers))
     .map(e => ({
       header: sv(e.alert!.headerText?.translation),
       details: sv(e.alert!.descriptionText?.translation),
