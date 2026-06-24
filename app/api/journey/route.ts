@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   const url = new URL('https://api.resrobot.se/v2.1/trip')
   url.searchParams.set('format', 'json')
   url.searchParams.set('accessId', apiKey)
-  url.searchParams.set('numF', '8')
+  url.searchParams.set('numF', '6')
 
   const originId = searchParams.get('originId')
   const originLat = searchParams.get('originLat')
