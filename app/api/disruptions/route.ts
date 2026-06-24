@@ -1,50 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server'
+import GtfsRealtimeBindings from 'gtfs-realtime-bindings'
 
-interface Deviation {
-  LineNumber?: string | number
-  Header?: string
-  ShortDescription?: string
-  Details?: string
-  Description?: string
-  ScopeElements?: string
-}
+export const runtime = 'nodejs'
 
-export async function GET(request: NextRequest) {
-  const apiKey = process.env.SL_DEVIATIONS_KEY
+export async function GET(_request: NextRequest) {
+  const apiKey = process.env.GTFS_RT_KEY
   if (!apiKey) return NextResponse.json({ deviations: [] })
 
-  const { searchParams } = new URL(request.url)
-  const lines = searchParams.get('lines')
+  const url = `https://opendata.samtrafiken.se/gtfs-rt/sl/ServiceAlerts.pb?key=${apiKey}`
 
-  const url = new URL('https://api.sl.se/api2/deviations.json')
-  url.searchParams.set('key', apiKey)
-  url.searchParams.set('transportMode', 'bus,metro,train,tram')
-
-  const res = await fetch(url.toString(), { next: { revalidate: 300 } })
+  const res = await fetch(url, { next: { revalidate: 300 } })
   if (!res.ok) return NextResponse.json({ deviations: [] })
 
-  const data = await res.json()
-  if (data.StatusCode !== 0) return NextResponse.json({ deviations: [] })
+  const buffer = await res.arrayBuffer()
+  const feed = GtfsRealtimeBindings.transit_realtime.FeedMessage.decode(new Uint8Array(buffer))
 
-  const rd = data.ResponseData
-  const all: Deviation[] = [
-    ...(rd.TrainDeviations ?? []),
-    ...(rd.BusDeviations ?? []),
-    ...(rd.TvDeviations ?? []),
-    ...(rd.ShipDeviations ?? []),
-  ]
+  const now = Math.floor(Date.now() / 1000)
 
-  const lineSet = lines ? new Set(lines.split(',').map(l => l.trim())) : null
-  const filtered = lineSet
-    ? all.filter(d => lineSet.has(String(d.LineNumber ?? '')))
-    : all.slice(0, 3)
+  const sv = (translations: { language?: string | null; text: string }[] | null | undefined) =>
+    translations?.find(t => t.language === 'sv')?.text ?? translations?.[0]?.text ?? ''
 
-  return NextResponse.json({
-    deviations: filtered.map(d => ({
-      header: d.Header ?? d.ShortDescription ?? '',
-      details: d.Details ?? d.Description ?? '',
-      scope: d.ScopeElements ?? '',
-      lineNumber: d.LineNumber,
+  const alerts = feed.entity
+    .filter(e => e.alert)
+    .filter(e => {
+      const periods = e.alert!.activePeriod ?? []
+      if (periods.length === 0) return true
+      return periods.some(p => {
+        const start = p.start != null ? Number(p.start) : 0
+        const end = p.end != null ? Number(p.end) : 0
+        return start <= now && (end === 0 || end >= now)
+      })
+    })
+    .map(e => ({
+      header: sv(e.alert!.headerText?.translation),
+      details: sv(e.alert!.descriptionText?.translation),
     }))
-  })
+    .filter(a => a.header)
+
+  return NextResponse.json({ deviations: alerts.slice(0, 5) })
 }
